@@ -1,0 +1,28 @@
+{
+    "drilldown": [
+        "--drilldown",
+        "--no-multiplex",
+        "--user",
+        "--cputype", "atom",
+        "--level", "6",
+	"--single-thread",
+	"--json"
+    ],
+    "all": [
+	"--verbose",
+	"--long-desc",
+        "--no-multiplex",
+        "--user",
+	"--all",
+	"--metrics",
+	"--power",
+	"--frequency",
+        "--cputype", "atom",
+        "--level", "6",
+	"--single-thread",
+	"--raw",
+	"--quiet",
+	"--csv", ",",
+	"--output", "toplev.csv"
+    ]
+}

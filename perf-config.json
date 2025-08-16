@@ -1,0 +1,114 @@
+{
+    "useful-events": {
+        "ecore": [
+	    "inst_retired.any:u",
+            "cpu_clk_unhalted.core:u",
+	    "cpu_clk_unhalted.ref_tsc:u",
+            "mem_uops_retired.all_loads:u",
+            "mem_load_uops_retired.dram_hit:u",
+            "mem_load_uops_retired.l3_hit:u",
+            "mem_load_uops_retired.l2_hit:u",
+	    "mem_uops_retired.all_loads:u",
+	    "mem_bound_stalls.load_l2_hit:u",
+	    "mem_bound_stalls.load_llc_hit:u",
+	    "mem_bound_stalls.load_dram_hit:u",
+	    "mem_bound_stalls.load:upp",
+	    "mem_scheduler_block.ld_buf",
+	    "mem_scheduler_block.rsv",
+            "dtlb_load_misses.walk_completed:upp",
+            "ld_head.dtlb_miss_at_ret:upp",
+	    "ld_head.l1_miss_at_ret:u",
+	    "ld_head.any_at_ret:u",
+	    "topdown_bad_speculation.mispredict:u",
+	    "topdown_be_bound.reorder_buffer:u",
+	    "topdown_be_bound.mem_scheduler:u",
+	    "topdown_be_bound.serialization:u",
+	    "topdown_be_bound.non_mem_scheduler:u",
+	    "topdown_be_bound.register:u",
+	    "topdown_be_bound.alloc_restrictions:u",
+	    "topdown_retiring.all:u"
+        ],
+        "pcore": [
+            "mem_inst_retired.all_loads:upp"
+        ]
+    },
+    "stat-bottlenecks": [
+	"stat",
+	"-e", "mem_bound_stalls.load:u,topdown_bad_speculation.mispredict:u,topdown_fe_bound.all:u,topdown_be_bound.all:u,topdown_retiring.all:u",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "stat-be": [
+	"stat",
+	"-e", "topdown_be_bound.alloc_restrictions:u,topdown_be_bound.non_mem_scheduler:u,topdown_be_bound.mem_scheduler:u,topdown_be_bound.reorder_buffer:u,topdown_be_bound.register:u",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "stat-mem": [
+        "stat",
+	"-e", "mem_uops_retired.all_loads:u,mem_load_uops_retired.dram_hit:u,mem_load_uops_retired.l3_hit:u,mem_load_uops_retired.l2_hit:u,cpu_clk_unhalted.core:u,inst_retired.any:u",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "stat-mem-2": [
+	"stat",
+	"-e", "mem_scheduler_block.rsv:u,mem_bound_stalls.load_l2_hit:u,mem_bound_stalls.load_llc_hit:u,mem_bound_stalls.load_dram_hit:u,mem_scheduler_block.rsv:u",
+	"-j" ,
+	"-o", "perf-stat.json"
+    ],
+    "stat-clks": [
+	"stat",
+	"-e", "cpu_clk_unhalted.core,cpu_clk_unhalted.ref_tsc",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "stat-misc": [
+	"stat",
+	"-e", "inst_retired.any:u,topdown_be_bound.register:u,topdown_be_bound.serialization:u,topdown_be_bound.alloc_restrictions:u,ld_blocks.4k_alias:u",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "stat-branch": [
+	"stat",
+	"-e", "br_inst_retired.all_branches:u,br_misp_retired.all_branches:u,br_misp_retired.cond:u,br_misp_retired.cond_taken:u,br_misp_retired.indirect:u",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "record-clks": [
+	"record",
+	"-e", "cpu_clk_unhalted.core:ppp",
+	"-c", "10000"
+    ],
+    "stat-kernel": [
+	"stat",
+	"-e", "context-switches,page-faults"
+    ],
+    "stat-pfaults": [
+	"stat",
+	"-e", "context-switches,minor-faults,major-faults",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "record-major-faults": [
+	"record",
+	"-e", "major-faults:upp",
+	"-c", "1"
+    ],
+    "stat-clks": [
+	"stat",
+	"-e", "cycles,instructions,task-clock,branch-misses,cache-misses,context-switches",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "stat-stalled": [
+	"stat",
+	"-e", "cycles,stalled-cycles-frontend,stalled-cycles-backend",
+	"-j",
+	"-o", "perf-stat.json"
+    ],
+    "record-be-bound-mem-scheduler": [
+        "record",
+	"-e", "topdown_be_bound.mem_scheduler:upp",
+	"-c", "100"
+    ]
+}

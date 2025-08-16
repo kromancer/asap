@@ -1,0 +1,111 @@
+#sparse = {{ encoding }}
+
+// Computes: a(i) = B(i,j) * c(j)
+func.func @spmv(%a_t: {{ out_type }},
+                %B: {{ mat_type }},
+                %c_t: {{ vtype }}) -> {{ out_type }} {
+
+    %true = arith.constant true
+    %false = arith.constant false
+
+    %c0 = arith.constant 0 : index
+    %c1 = arith.constant 1 : index
+    %c2 = arith.constant 2 : index
+
+    // Fixed lookahead distance
+    %dist = arith.constant {{ pd }} : index
+    %double_dist = arith.muli %dist, %c2 : index
+
+    %c = bufferization.to_memref %c_t : {{ vtype }} to memref<{{ cols }}x{{ dtype }}>
+    %a = bufferization.to_memref %a_t : {{ out_type }} to memref<{{ rows }}x{{ dtype }}>
+    %Bi_pos = sparse_tensor.positions   %B {level = 0 : index} : {{ mat_type }} to memref<?xindex>
+    %Bi_crd = sparse_tensor.coordinates %B {level = 0 : index} : {{ mat_type }} to memref<?xindex>
+    %Bj_crd = sparse_tensor.coordinates %B {level = 1 : index} : {{ mat_type }} to memref<?xindex>
+    %B_vals = sparse_tensor.values %B : {{ mat_type }} to memref<?x{{ dtype }}>
+    %6 = memref.load %Bi_pos[%c0] : memref<?xindex>
+    %7 = memref.load %Bi_pos[%c1] : memref<?xindex>
+
+    // Finds first segment's upper bound
+    %8 = scf.while (%arg3 = %6) : (index) -> index {
+      %11 = arith.cmpi ult, %arg3, %7 : index
+      %12 = scf.if %11 -> (i1) {
+        %13 = memref.load %Bi_crd[%6] : memref<?xindex>
+        %14 = memref.load %Bi_crd[%arg3] : memref<?xindex>
+        %15 = arith.cmpi eq, %13, %14 : index
+        scf.yield %15 : i1
+      } else {
+        scf.yield %false : i1
+      }
+      scf.condition(%12) %arg3 : index
+    } do {
+    ^bb0(%arg3: index):
+      %11 = arith.addi %arg3, %c1 : index
+      scf.yield %11 : index
+    }
+
+    %9:2 = scf.while (%arg3 = %6, %seg_end = %8) : (index, index) -> (index, index) {
+      %11 = arith.cmpi ult, %arg3, %7 : index
+      scf.condition(%11) %arg3, %seg_end : index, index
+    } do {
+    ^bb0(%arg3: index, %seg_end: index):
+      %i = memref.load %Bi_crd[%arg3] : memref<?xindex>
+      %bound = arith.subi %seg_end, %c1 : index
+      scf.if %true {
+        %14 = memref.load %a[%i] : memref<{{ rows }}x{{ dtype }}>
+        %15 = scf.for %jj = %arg3 to %seg_end step %c1 iter_args(%arg6 = %14) -> ({{ dtype }}) {
+
+          // Load candidate coordinate j
+          %j = memref.load %Bj_crd[%jj] : memref<?xindex>
+
+          // Load B_vals[jj]
+          %22 = memref.load %B_vals[%jj] : memref<?x{{ dtype }}>
+
+          // Load c[j]
+          %23 = memref.load %c[%j] : memref<{{ cols }}x{{ dtype }}>
+
+          // Prefetch Bj_crd[jj + 2 * dist]
+          %17 = arith.addi %jj, %double_dist : index
+          memref.prefetch %Bj_crd[%17], read, locality<{{ loc_hint }}>, data : memref<?xindex>
+
+          // Load Bj_crd[min(jj + dist, bound)]
+          %18 = arith.addi %jj, %dist : index
+          %19 = arith.cmpi ult, %18, %bound : index
+          %20 = arith.select %19, %18, %bound : index
+          %21 = memref.load %Bj_crd[%20] : memref<?xindex>
+
+          // Prefetch c[Bj_crd[min(jj + dist, seg_end)]]
+          memref.prefetch %c[%21], read, locality<{{ loc_hint }}>, data : memref<{{ cols }}x{{ dtype }}>
+
+          %24 = {{ mul_op }} %22, %23 : {{ dtype }}
+          %25 = {{ add_op }} %arg6, %24 : {{ dtype }}
+          scf.yield %25 : {{ dtype }}
+        }
+        memref.store %15, %a[%i] : memref<{{ rows }}x{{ dtype }}>
+      } else {
+      }
+      %13:2 = scf.if %true -> (index, index) {
+        %14 = scf.while (%ii = %seg_end) : (index) -> index {
+          %15 = arith.cmpi ult, %ii, %7 : index
+          %16 = scf.if %15 -> (i1) {
+            %17 = memref.load %Bi_crd[%seg_end] : memref<?xindex>
+            %18 = memref.load %Bi_crd[%ii] : memref<?xindex>
+            %19 = arith.cmpi eq, %17, %18 : index
+            scf.yield %19 : i1
+          } else {
+            scf.yield %false : i1
+          }
+          scf.condition(%16) %ii : index
+        } do {
+        ^bb0(%ii: index):
+          %15 = arith.addi %ii, %c1 : index
+          scf.yield %15 : index
+        }
+        scf.yield %seg_end, %14 : index, index
+      } else {
+        scf.yield %arg3, %seg_end : index, index
+      }
+      scf.yield %13#0, %13#1 : index, index
+    }
+    %10 = bufferization.to_tensor %a restrict : memref<{{ rows }}x{{ dtype }}> to {{ out_type }}
+    return %10 : {{ out_type }}
+}

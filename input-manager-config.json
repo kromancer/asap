@@ -1,0 +1,7 @@
+{
+    "seed": 5,
+    "skip_load": false,
+    "skip_store": false,
+    "directory-synthetic": "<replace with absolute path to repo>/asap-inputs",
+    "directory-SuiteSparse": "<replace with absolute path to repo>/asap-inputs"
+}

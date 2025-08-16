@@ -1,0 +1,52 @@
+#map  = affine_map<(i, j, k) -> (i, j)>
+#map1 = affine_map<(i, j, k) -> (j, k)>
+#map2 = affine_map<(i, j, k) -> (i, k)>
+
+#sparse = {{ encoding }}
+
+module {
+  func.func @spmm(%arg0: {{ out_type }},
+                  %arg1: {{ sp_mat_type }},
+                  %arg2: {{ dense_mat_type }}) -> {{ out_type }} {
+    %0 = linalg.generic {
+        indexing_maps = [#map, #map1, #map2],
+        iterator_types = ["parallel", "reduction", "parallel"]}
+        ins(%arg1, %arg2 : {{ sp_mat_type }}, {{ dense_mat_type }})
+        outs(%arg0 : {{ out_type }}) {
+    ^bb0(%in: {{ dtype }}, %in_0: {{ dtype }}, %out: {{ dtype }}):
+      %1 = {{ mul_op }} %in, %in_0 : {{ dtype }}
+      %2 = {{ add_op }} %out, %1 : {{ dtype }}
+      linalg.yield %2 : {{ dtype }}
+    } -> {{ out_type }}
+
+{% if is_symmetric %}
+    {% if  dtype.startswith("f") %}
+        %c0 = arith.constant 0.0: {{ dtype }}
+    {% else %}
+        %c0 = arith.constant 0: {{ dtype }}
+    {% endif %}
+
+    %1 = linalg.generic {
+         indexing_maps = [#map, #map2, #map1],
+         iterator_types = ["reduction", "parallel", "parallel"]}
+         ins(%arg1, %arg2: {{ sp_mat_type }}, {{ dense_mat_type }})
+         outs(%0: {{ out_type }}) {
+         ^bb0(%bij: {{ dtype }}, %ci: {{ dtype }}, %aj: {{ dtype }}) :
+           %row = linalg.index 0 : index
+           %col = linalg.index 1 : index
+           %acc = sparse_tensor.reduce %bij, %aj, %c0: {{ dtype }} {
+             ^bb0(%bij_: {{ dtype }}, %aj_: {{ dtype }}):
+               %t1 = {{ mul_op }} %bij_, %ci : {{ dtype }}
+               %t2 = {{ add_op }} %t1, %aj_: {{ dtype }}
+               %is_diag = arith.cmpi eq, %row, %col : index
+               %sel = arith.select %is_diag, %aj_, %t2: {{ dtype }}
+               sparse_tensor.yield %sel: {{ dtype }}
+           }
+           linalg.yield %acc: {{ dtype }}
+         } -> {{ out_type }}
+    return %1 : {{ out_type }}
+{% else %}
+    return %0 : {{ out_type }}
+{% endif %}
+  }
+}

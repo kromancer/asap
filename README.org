@@ -1,0 +1,73 @@
+* ASaP
+
+This repository contains evaluation artifacts for the publication in ./doc/main.pdf.
+ASaP itself comes as two patches for llvm@7211bf48a62b in [[./llvm-patches/]].
+
+* Building the container image
+
+The project uses [[https://apptainer.org/docs/admin/main/installation.html#install-ubuntu-packages][Apptainer]] for containerized environment management based on Ubuntu 22.04.
+Build the container image using:
+
+#+begin_src sh
+sudo apptainer build [path where image should be placed]/asap.sif apptainer.def
+#+end_src
+
+For a native installation you may try following the steps in [[./apptainer.def]]
+
+* Usage
+
+The three main entry points are:
+- [[file:spmv.py][spmv.py]]
+- [[file:spmm.py][spmm.py]]
+- [[file:suite_sparse.py][suite_sparse.py]]
+
+Example use cases can be found in tests/
+To run all tests (notice j1 for single worker):
+#+begin_src sh
+sudo apptainer exec ../asap.sif bash -c "source /venv/bin/activate && lit -j1 -a tests
+#+end_src
+
+Several scripts require elevated privileges because they modify kernel interfaces such as /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages. Run them with sudo or ensure the container/session has the necessary permissions.
+
+Before running, edit input-manager-config.json to point to your local repository path:
+
+* System Configuration
+
+In ~/etc/default/grub~:
+#+begin_src bash
+# sudo update-grub && restart
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash hugepagesz=1G hugepages=2 hugepagesz=2M hugepages=25600 isolcpus=8-15 nohz_full=8-15 rcu_nocbs=8-15"
+#+end_src
+
+The [[file:run_experiment.sh][run_experiment.sh]] script provides a comprehensive system configuration for consistent performance measurements on an Alderlake E-core.
+It performs the following optimizations:
+
+- Turbo Boost: Disables Intel Turbo Boost to ensure consistent CPU frequencies
+- HWP (Hardware P-States): Manages Intel P-state driver configuration
+- Performance Governor: Sets CPU frequency scaling governor to "performance" mode
+- Fixed Frequency: Locks CPU cores to maximum frequency to eliminate frequency scaling effects
+- Uncore Frequency: Sets uncore (cache/memory controller) frequency to maximum
+- Deep Idle States: Disables deep CPU idle states to reduce wake-up latency
+- ASLR: Disables Address Space Layout Randomization for consistent memory layout
+- Swap Prevention: Configures `vm.overcommit_memory=0` and `vm.swappiness=0` to prevent swapping
+- Memory Isolation: Ensures cores are isolated from kernel scheduling
+
+* Working with CSR on SuiteSparse matrices
+
+SuiteSparse matrices are provided in COO format (.mtx files) or CSC format (.rb files) by default.
+Converting them to CSR using scipy.sparse (as implemented in this repo) requires significant memory and is best done offline, before running benchmarks.
+On the experiment system—an i9-12900K with 128GB RAM (its maximum capacity)—these transformations will require swap space.
+
+See [[./convert_ss_to_csr.sh]] for details.
+
+* Experiments
+
+To set up CPU shielding at runtime:
+#+begin_src bash
+sudo cset shield --cpu=8-15 -k on
+#+end_src
+
+Then run an experiment like:
+#+begin_src bash
+sudo ./run_experiment.sh 8 experiment.sh
+#+end_src

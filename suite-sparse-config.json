@@ -1,0 +1,18 @@
+{
+    "exclude-from-all": [],
+    "biggest": [
+        "AGATHA_2015",
+        "GAP-urand",
+        "GAP-kron",
+        "MOLIERE_2016",
+        "com-Friendster",
+        "mycielskian20"
+    ],
+    "test": [
+        "mycielskian3",
+        "ex5"
+    ],
+    "ortho": [
+        "n4c6-b13"
+    ]
+}
